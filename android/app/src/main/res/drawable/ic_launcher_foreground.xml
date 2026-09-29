@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 同禾境图标：一株禾苗（白）+ 品牌绿底 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+  <!-- 主茎 -->
+  <path
+      android:strokeColor="#FFFFFF"
+      android:strokeWidth="5.5"
+      android:strokeLineCap="round"
+      android:pathData="M54,84 L54,42" />
+  <!-- 左叶 -->
+  <path
+      android:fillColor="#FFFFFF"
+      android:pathData="M54,68 C43,66 36,58 34,47 C46,48 54,56 54,68 Z" />
+  <!-- 右叶 -->
+  <path
+      android:fillColor="#FFFFFF"
+      android:pathData="M54,74 C65,72 72,64 74,53 C62,54 54,62 54,74 Z" />
+  <!-- 穗 -->
+  <path
+      android:fillColor="#FFFFFF"
+      android:pathData="M54,34 m-6,0 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0" />
+</vector>

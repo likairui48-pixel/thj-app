@@ -1,0 +1,13 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  errors:
+    # CI 上先非阻塞收集，别因为 lint 风格问题挡住出包
+    deprecated_member_use: ignore
+  exclude:
+    - build/**
+
+linter:
+  rules:
+    prefer_const_constructors: false
+    use_build_context_synchronously: false

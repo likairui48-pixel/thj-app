@@ -1,0 +1,20 @@
+# Flutter / Dart
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+pubspec.lock
+
+# Android —— ★ local.properties 绝对不能进仓库（CI 上路径是错的）
+android/local.properties
+android/.gradle/
+android/app/.cxx/
+android/**/captures/
+*.iml
+.idea/
+
+# 其他
+.DS_Store
+dist/
+*.apk

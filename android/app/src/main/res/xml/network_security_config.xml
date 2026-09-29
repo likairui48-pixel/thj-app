@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  只对本项目自己使用的两个地址放行明文 HTTP：
+    - 保底入口 http://211.101.233.180:8080（未备案期间直连用）
+  其余域名（含正式域名）一律强制 HTTPS。
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">211.101.233.180</domain>
+    </domain-config>
+</network-security-config>
