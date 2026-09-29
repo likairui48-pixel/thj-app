@@ -168,7 +168,7 @@ class _MessagesPageState extends State<MessagesPage>
                 ),
               )
             else if (_err != null)
-              ErrorHint(message: _err!, onRetry: _load)
+              ErrorPanel(message: _err!, onRetry: _load)
             else
               ..._list(t),
           ],

@@ -29,7 +29,7 @@ class AsyncView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (error != null && !loading) {
-      return ErrorHint(message: error!, onRetry: onRetry);
+      return ErrorPanel(message: error!, onRetry: onRetry);
     }
     if (loading && skeleton != null) return skeleton!;
     if (isEmpty) return EmptyHint(text: emptyText, icon: emptyIcon);
@@ -37,8 +37,8 @@ class AsyncView extends StatelessWidget {
   }
 }
 
-class ErrorHint extends StatelessWidget {
-  const ErrorHint({super.key, required this.message, this.onRetry});
+class ErrorPanel extends StatelessWidget {
+  const ErrorPanel({super.key, required this.message, this.onRetry});
 
   final String message;
   final VoidCallback? onRetry;

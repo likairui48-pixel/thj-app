@@ -111,7 +111,7 @@ class _PlayerPageState extends State<PlayerPage> {
                         ),
                       )
                     else if (_err != null && _card == null)
-                      ErrorHint(message: _err!, onRetry: _load)
+                      ErrorPanel(message: _err!, onRetry: _load)
                     else if (_card != null)
                       ..._content(t, _card!),
                   ],

@@ -256,7 +256,7 @@ class _RankPageState extends State<RankPage>
     if (_err != null) {
       return Padding(
         padding: const EdgeInsets.only(top: 12),
-        child: ErrorHint(message: _err!, onRetry: _reload),
+        child: ErrorPanel(message: _err!, onRetry: _reload),
       );
     }
     if (_loading && _rows.isEmpty) {
