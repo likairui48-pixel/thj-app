@@ -5,6 +5,8 @@ import '../core/api.dart';
 import '../core/store.dart';
 import '../widgets/common.dart';
 import '../widgets/glass.dart';
+import 'chat_list_page.dart';
+import 'friends_page.dart';
 import 'web_page.dart';
 
 /// 消息中心：通知 / 私信 / 好友申请 三类未读 + 系统通知开关
@@ -212,9 +214,9 @@ class _MessagesPageState extends State<MessagesPage>
               onTap: () {
                 setState(() => _tab = i);
                 if (cells[i].key == 'dm') {
-                  _openWeb('私信', '/dm');
+                  _openNative(const ChatListPage());
                 } else if (cells[i].key == 'friend') {
-                  _openWeb('好友', '/friends');
+                  _openNative(const FriendsPage());
                 }
               },
               child: Column(
@@ -308,7 +310,7 @@ class _MessagesPageState extends State<MessagesPage>
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         onTap: () {
           if (n.link != null && n.link!.isNotEmpty) {
-            _openWeb(n.title, n.link!);
+            NavBus.i.openLink(n.link!);
           }
         },
         child: Row(
@@ -425,6 +427,13 @@ class _MessagesPageState extends State<MessagesPage>
         ],
       ),
     );
+  }
+
+  /// 打开原生页面（替代以前的跳网页）
+  void _openNative(Widget page) {
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => page))
+        .then((_) => _load());
   }
 
   void _openWeb(String title, String path) {

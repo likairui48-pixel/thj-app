@@ -6,8 +6,12 @@ import '../core/store.dart';
 import '../widgets/common.dart';
 import '../widgets/glass.dart';
 import 'player_page.dart';
+import 'user_profile_page.dart';
 
-/// 排行榜：段位筛选 + 服务端分页（滚动续载）+ 假人折叠
+/// ============================================================
+///  排行榜（原生）：段位榜 / 时长榜 / 等级榜
+///  点任意一行 → 有站内账号的进「个人主页」，没有的进「游戏名片」
+/// ============================================================
 class RankPage extends StatefulWidget {
   const RankPage({super.key});
 
@@ -16,395 +20,315 @@ class RankPage extends StatefulWidget {
 }
 
 class _RankPageState extends State<RankPage>
-    with AutomaticKeepAliveClientMixin {
-  static const int _pageSize = 30;
+    with SingleTickerProviderStateMixin {
+  late final TabController _tab = TabController(length: 3, vsync: this);
+  final _state = AppState.i;
 
-  final _scroll = ScrollController();
-  final List<RankRow> _rows = <RankRow>[];
-  List<TierInfo> _tiers = const <TierInfo>[];
-  String? _tier;
-  int _total = 0;
-  int _fakesFolded = 0;
-  bool _loading = false;
-  bool _loadingMore = false;
-  bool _hasMore = true;
+  bool _loading = true;
   String? _err;
-  bool _first = true;
 
-  @override
-  bool get wantKeepAlive => true;
+  List<RankRow> _board = <RankRow>[];
+  int _boardTotal = 0;
+  List<LeaderRow> _playtime = <LeaderRow>[];
+  List<LeaderRow> _level = <LeaderRow>[];
 
   @override
   void initState() {
     super.initState();
-    _scroll.addListener(() {
-      if (_scroll.position.pixels >
-          _scroll.position.maxScrollExtent - 400) {
-        _loadMore();
-      }
+    _tab.addListener(() {
+      if (mounted) setState(() {});
     });
-    _reload();
+    _load();
   }
 
   @override
   void dispose() {
-    _scroll.dispose();
+    _tab.dispose();
     super.dispose();
   }
 
-  Future<void> _reload() async {
+  Future<void> _load() async {
     setState(() {
       _loading = true;
       _err = null;
-      _rows.clear();
-      _hasMore = true;
     });
     try {
-      final j = await Api.i.board(
-        limit: _pageSize,
-        offset: 0,
-        tier: _tier,
-        showFakes: AppState.i.showFakes,
-      );
-      final rows = asList(j['board']).map(RankRow.fromJson).toList();
-      final tiers = asList(j['tiers']).map(TierInfo.fromJson).toList();
+      final b = await Api.i.board(limit: 60, showFakes: _state.showFakes);
+      final rows = asList(b['board']).map(RankRow.fromJson).toList();
+      final pt = await Api.i.leaderboard('playtime');
+      final lv = await Api.i.leaderboard('level');
+      if (!mounted) return;
       setState(() {
-        _rows.addAll(rows);
-        if (tiers.isNotEmpty) _tiers = tiers;
-        _total = asInt(j['total']);
-        _fakesFolded = asInt(j['fakesFolded']);
-        _hasMore = rows.length >= _pageSize;
-        _first = false;
+        _board = rows;
+        _boardTotal = asInt(b['total']);
+        _playtime = asList(pt['rows']).map(LeaderRow.fromJson).toList();
+        _level = asList(lv['rows']).map(LeaderRow.fromJson).toList();
+        _loading = false;
       });
     } catch (e) {
-      setState(() => _err = e.toString());
-    } finally {
-      if (mounted) setState(() => _loading = false);
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _err = e is ApiError ? e.message : e.toString();
+      });
     }
   }
 
-  Future<void> _loadMore() async {
-    if (_loadingMore || !_hasMore || _loading) return;
-    setState(() => _loadingMore = true);
-    try {
-      final j = await Api.i.board(
-        limit: _pageSize,
-        offset: _rows.length,
-        tier: _tier,
-        showFakes: AppState.i.showFakes,
-      );
-      final rows = asList(j['board']).map(RankRow.fromJson).toList();
-      setState(() {
-        _rows.addAll(rows);
-        _hasMore = rows.length >= _pageSize;
-      });
-    } catch (_) {
-      setState(() => _hasMore = false);
-    } finally {
-      if (mounted) setState(() => _loadingMore = false);
+  Future<void> _open(String name, String? webUser) async {
+    if (webUser != null && webUser.isNotEmpty) {
+      await Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => UserProfilePage(username: webUser)));
+      return;
     }
+    await Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => PlayerPage(name: name)));
   }
 
   @override
   Widget build(BuildContext context) {
-    super.build(context);
     final t = GlassTokens.of(context);
-    return RefreshIndicator(
-      onRefresh: _reload,
-      color: t.accent,
-      backgroundColor:
-          t.brightness == Brightness.dark ? const Color(0xFF16171A) : Colors.white,
-      child: ListView.builder(
-        controller: _scroll,
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.fromLTRB(
-          R.page,
-          MediaQuery.of(context).padding.top + 8,
-          R.page,
-          GlassPillNav.reserved(context),
-        ),
-        itemCount: _rows.length + 3,
-        itemBuilder: (context, i) {
-          if (i == 0) return _head(t);
-          if (i == 1) return _tierRow(t);
-          if (i == 2) return _metaRow(t);
-          final row = _rows[i - 3];
-          return _rowTile(t, row, index: i - 3);
-        },
-      ),
-    );
-  }
-
-  Widget _head(GlassTokens t) {
-    final s = AppState.i.season;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text('排行榜',
-                style: TextStyle(
-                    color: t.text,
-                    fontSize: 26,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1)),
-            const Spacer(),
-            if (AppState.i.me?.loggedIn == true)
-              GlassChip(
-                label: '我在这',
-                icon: Icons.my_location_rounded,
-                onTap: _jumpToMe,
-              ),
+    final s = _state.season;
+    return AuroraBg(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          title: const Text('排行榜'),
+          actions: [
+            GlassIconButton(
+              icon: Icons.refresh_rounded,
+              size: 38,
+              tooltip: '刷新',
+              onTap: _load,
+            ),
+            const SizedBox(width: 10),
           ],
+          bottom: TabBar(
+            controller: _tab,
+            labelColor: t.accent,
+            unselectedLabelColor: t.text3,
+            indicatorColor: t.accent,
+            tabs: const [
+              Tab(text: '段位榜'),
+              Tab(text: '时长榜'),
+              Tab(text: '等级榜'),
+            ],
+          ),
         ),
-        const SizedBox(height: 12),
-        GlassPanel(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-          strong: true,
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(s?.name ?? '当前赛季',
-                        style: TextStyle(
-                            color: t.text,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 4),
-                    Text(
-                      s == null
-                          ? '赛季数据加载中'
-                          : '共 $_total 位玩家 · 剩余 ${s.daysLeft} 天',
-                      style: TextStyle(color: t.text3, fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-              if (s != null)
-                Container(
+        body: Column(
+          children: [
+            if (s != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+                child: GlassPanel(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: t.accent.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(R.tile),
-                    border: Border.all(color: t.accent.withOpacity(0.3)),
-                  ),
-                  child: Column(
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  child: Row(
                     children: [
-                      Text('${s.daysLeft}',
-                          style: TextStyle(
-                              color: t.accent,
-                              fontSize: 20,
-                              height: 1,
-                              fontWeight: FontWeight.w800)),
-                      Text('天后结算',
-                          style: TextStyle(color: t.text3, fontSize: 10)),
+                      Icon(Icons.emoji_events_rounded,
+                          size: 18, color: t.accent),
+                      const SizedBox(width: 9),
+                      Expanded(
+                        child: Text(
+                          '${s.name} · 还剩 ${s.daysLeft} 天'
+                          '${_boardTotal > 0 ? ' · 共 $_boardTotal 位玩家' : ''}',
+                          style: TextStyle(fontSize: 13, color: t.text2),
+                        ),
+                      ),
                     ],
                   ),
                 ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _tierRow(GlassTokens t) {
-    final chips = <Widget>[
-      GlassChip(
-        label: '全部',
-        active: _tier == null,
-        onTap: () {
-          if (_tier != null) {
-            setState(() => _tier = null);
-            _reload();
-          }
-        },
-      ),
-    ];
-    for (final tier in _tiers) {
-      chips.add(GlassChip(
-        label: tier.label,
-        active: _tier == tier.key,
-        color: Color(tier.color),
-        onTap: () {
-          setState(() => _tier = _tier == tier.key ? null : tier.key);
-          _reload();
-        },
-      ));
-    }
-    return Padding(
-      padding: const EdgeInsets.only(top: 14),
-      child: SizedBox(
-        height: 38,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          children: [
-            for (int i = 0; i < chips.length; i++) ...[
-              if (i > 0) const SizedBox(width: 8),
-              Center(child: chips[i]),
-            ],
+              ),
+            Expanded(child: _body(t)),
           ],
         ),
       ),
     );
   }
 
-  Widget _metaRow(GlassTokens t) {
-    if (_err != null) {
-      return Padding(
-        padding: const EdgeInsets.only(top: 12),
-        child: ErrorPanel(message: _err!, onRetry: _reload),
-      );
-    }
-    if (_loading && _rows.isEmpty) {
-      return Column(
+  Widget _body(GlassTokens t) {
+    if (_loading) {
+      return ListView(
+        padding: const EdgeInsets.all(16),
         children: List<Widget>.generate(
-          6,
-          (_) => const Padding(
-            padding: EdgeInsets.only(top: 9),
-            child: GlassSkeleton(height: 62, radius: 18),
+          7,
+          (i) => const Padding(
+            padding: EdgeInsets.only(bottom: 10),
+            child: GlassSkeleton(height: 56, radius: 16),
           ),
         ),
       );
     }
-    return Padding(
-      padding: const EdgeInsets.only(top: 10, bottom: 2),
-      child: Row(
+    if (_err != null) {
+      return ListView(
+        padding: const EdgeInsets.all(16),
+        children: [ErrorPanel(message: _err!, onRetry: _load)],
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: TabBarView(
+        controller: _tab,
         children: [
-          Text(
-            _first ? '加载中…' : '已显示 ${_rows.length} / $_total',
-            style: TextStyle(color: t.text3, fontSize: 11.5),
-          ),
-          const Spacer(),
-          if (_fakesFolded > 0)
-            Text('已折叠 $_fakesFolded 个假人',
-                style: TextStyle(color: t.text3, fontSize: 11.5)),
+          _boardList(t),
+          _leaderList(_playtime, t, by: 'playtime'),
+          _leaderList(_level, t, by: 'level'),
         ],
       ),
     );
   }
 
-  Widget _rowTile(GlassTokens t, RankRow row, {required int index}) {
-    final isTop3 = row.pos <= 3;
-    final tierColor = Color(row.tier.color);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 9),
-      child: GlassPanel(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-        radius: R.tile,
-        strong: isTop3,
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => PlayerPage(name: row.name)),
-        ),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 30,
-              child: Text(
-                '${row.pos}',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: isTop3 ? t.text : t.text3,
-                  fontSize: isTop3 ? 18 : 15,
-                  fontWeight: isTop3 ? FontWeight.w800 : FontWeight.w600,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            PlayerAvatar(name: row.name, size: 38),
-            const SizedBox(width: 11),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    row.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        color: t.text,
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    '${hoursText(row.hours)} · 放置 ${shortNum(row.placed)}'
-                    '${row.level == null ? '' : ' · Lv.${row.level}'}',
-                    style: TextStyle(color: t.text3, fontSize: 11.5),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+  Widget _boardList(GlassTokens t) {
+    if (_board.isEmpty) {
+      return ListView(
+        padding: const EdgeInsets.all(16),
+        children: const [
+          EmptyHint(text: '还没有段位数据', icon: Icons.leaderboard_rounded),
+        ],
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 90),
+      itemCount: _board.length,
+      itemBuilder: (ctx, i) {
+        final r = _board[i];
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: GlassPanel(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+            onTap: () => _open(r.name, r.webUser),
+            child: Row(
               children: [
-                Text('${row.score}',
-                    style: TextStyle(
-                        color: t.text,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700)),
-                const SizedBox(height: 3),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 7, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: tierColor.withOpacity(0.16),
-                    borderRadius: BorderRadius.circular(R.pill),
-                    border: Border.all(color: tierColor.withOpacity(0.4)),
-                  ),
-                  child: Text(
-                    row.tier.label,
-                    style: TextStyle(
-                        color: tierColor,
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w700),
+                _posBadge(r.pos, t),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(r.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: t.text)),
+                          ),
+                          if (r.webUser != null) ...[
+                            const SizedBox(width: 6),
+                            GlassChip(label: '已绑定'),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        '${r.score} 分 · ${hoursText(r.hours)} · 已放置 ${shortNum(r.placed)}',
+                        style: TextStyle(fontSize: 11.5, color: t.text3),
+                      ),
+                    ],
                   ),
                 ),
+                GlassChip(label: r.tier.label, color: Color(r.tier.color)),
               ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
-  Future<void> _jumpToMe() async {
-    final me = AppState.i.me;
-    final name = me?.mcName;
-    if (name == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('你还没有绑定 Minecraft 账号')),
+  Widget _leaderList(List<LeaderRow> rows, GlassTokens t, {required String by}) {
+    if (rows.isEmpty) {
+      return ListView(
+        padding: const EdgeInsets.all(16),
+        children: const [
+          EmptyHint(text: '还没有数据', icon: Icons.bar_chart_rounded),
+        ],
       );
-      return;
     }
-    try {
-      final j = await Api.i.get('/api/rank/${Uri.encodeComponent(name)}');
-      final r = asMap(j['rank']);
-      final pos = asInt(r['position']);
-      if (!mounted) return;
-      if (pos <= 0 || pos > _rows.length) {
-        _reload();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('你当前第 $pos 名，已刷新榜单')),
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 90),
+      itemCount: rows.length,
+      itemBuilder: (ctx, i) {
+        final r = rows[i];
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: GlassPanel(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+            onTap: () => _open(r.name, r.webUser),
+            child: Row(
+              children: [
+                _posBadge(r.rank, t),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(r.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: t.text)),
+                          ),
+                          if (r.webUser != null) ...[
+                            const SizedBox(width: 6),
+                            GlassChip(label: '已绑定'),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        by == 'playtime'
+                            ? hoursText(r.hours)
+                            : '等级 ${r.level ?? '—'}',
+                        style: TextStyle(fontSize: 11.5, color: t.text3),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right_rounded,
+                    size: 18, color: t.text3),
+              ],
+            ),
+          ),
         );
-      } else {
-        _scroll.animateTo(
-          ((pos - 1) * 71).toDouble().clamp(
-                0,
-                _scroll.position.maxScrollExtent,
-              ),
-          duration: Motion.page,
-          curve: Motion.ease,
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('定位失败：$e')));
-    }
+      },
+    );
+  }
+
+  Widget _posBadge(int pos, GlassTokens t) {
+    final top3 = pos <= 3;
+    final color = pos == 1
+        ? const Color(0xFFE0B24B)
+        : (pos == 2
+            ? const Color(0xFFB9C0C8)
+            : (pos == 3 ? const Color(0xFFC98A5B) : t.text3));
+    return Container(
+      width: 34,
+      height: 34,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: top3 ? color.withOpacity(0.16) : t.fill,
+        border: Border.all(
+            color: top3 ? color.withOpacity(0.55) : t.stroke),
+      ),
+      child: Text(
+        '$pos',
+        style: TextStyle(
+          fontSize: 13.5,
+          fontWeight: FontWeight.w800,
+          color: top3 ? color : t.text3,
+        ),
+      ),
+    );
   }
 }

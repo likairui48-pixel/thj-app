@@ -5,10 +5,12 @@ import 'package:flutter/material.dart';
 import '../app/config.dart';
 import '../core/store.dart';
 import '../widgets/glass.dart';
+import 'chat_page.dart';
 import 'home_page.dart';
 import 'me_page.dart';
 import 'messages_page.dart';
 import 'rank_page.dart';
+import 'user_profile_page.dart';
 import 'web_page.dart';
 
 /// 应用外壳：背景光晕 + 椭圆形液态玻璃底部栏 + 5 个 Tab
@@ -32,6 +34,17 @@ class _ShellState extends State<Shell> {
     _state.addListener(_onChange);
     _navSub = NavBus.i.stream.listen(_gotoId);
     _built.add(_features.isEmpty ? 'home' : _features.first.id);
+    // 让「通知点击 / 消息里的链接」能从任何地方打开原生页面
+    NavBus.i.openChat = (uid) => _push(ChatPage(userId: uid));
+    NavBus.i.openProfile = (name) => _push(UserProfilePage(username: name));
+    NavBus.i.openWebPage =
+        (path) => _push(WebPage(title: '同禾境', path: path));
+  }
+
+  void _push(Widget page) {
+    final nav = NavBus.i.navKey.currentState;
+    if (nav == null) return;
+    nav.push(MaterialPageRoute(builder: (_) => page));
   }
 
   @override

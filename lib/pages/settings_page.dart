@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../app/config.dart';
 import '../app/theme.dart';
 import '../core/api.dart';
+import '../core/native.dart';
 import '../core/notify.dart';
+import '../core/realtime.dart';
 import '../core/store.dart';
 import '../core/update.dart';
 import '../widgets/glass.dart';
@@ -102,6 +104,8 @@ class _SettingsPageState extends State<SettingsPage> {
                       ],
                     ),
                   ),
+                  _section(t, '消息接收方式'),
+                  _rtSection(t),
                   _section(t, '消息与通知'),
                   GlassPanel(
                     padding: const EdgeInsets.symmetric(vertical: 4),
@@ -327,6 +331,130 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _section(GlassTokens t, String title) => SectionTitleSmall(title: title);
+
+  /// 消息接收方式：把「代价」写清楚，让用户自己权衡
+  Widget _rtSection(GlassTokens t) {
+    final mode = _state.rtMode;
+    final rows = <({int v, String title, String sub})>[
+      (
+        v: 0,
+        title: '仅在打开 App 时接收（最省电）',
+        sub: '不常驻后台、通知栏没有任何残留、几乎不耗电。\n代价：App 关着时收不到提醒，打开 App 的那一刻才会收到。'
+      ),
+      (
+        v: 1,
+        title: '后台实时接收',
+        sub: '锁屏、切到别的 App 也能立刻收到消息（长连接）。\n代价：通知栏会常驻一条「静音、不响、不震、不显示图标」的通知（安卓硬性要求，所有 App 都一样）；后台会多耗一点电和流量。'
+      ),
+      (
+        v: 2,
+        title: '后台实时 + 省电白名单（最稳）',
+        sub: '在「后台实时」的基础上，请你把 App 加入系统白名单（电池不优化 / 允许自启动），这样国产系统清理后台时最不容易把它杀掉。\n代价：需要你去系统设置点一次；后台耗电会比「仅打开时」多一些。'
+      ),
+    ];
+    return GlassPanel(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Column(
+        children: [
+          for (var i = 0; i < rows.length; i++) ...[
+            if (i > 0) Divider(color: t.divider, height: 1),
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              leading: Icon(
+                mode == rows[i].v
+                    ? Icons.radio_button_checked_rounded
+                    : Icons.radio_button_off_rounded,
+                size: 20,
+                color: mode == rows[i].v ? t.accent : t.text3,
+              ),
+              title: Text(rows[i].title,
+                  style: TextStyle(
+                      color: t.text,
+                      fontSize: 14,
+                      fontWeight: mode == rows[i].v ? FontWeight.w700 : FontWeight.w500)),
+              subtitle: Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(rows[i].sub,
+                    style: TextStyle(color: t.text3, fontSize: 11.5, height: 1.55)),
+              ),
+              onTap: () async {
+                await _state.setRtMode(rows[i].v);
+                if (!mounted) return;
+                if (rows[i].v == 0) {
+                  NotifyService.i.cancelAll();
+                } else {
+                  await NotifyService.i.ensurePermission();
+                }
+              },
+            ),
+          ],
+          Divider(color: t.divider, height: 1),
+          ValueListenableBuilder<bool>(
+            valueListenable: Realtime.i.live,
+            builder: (ctx, live, _) => ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+              title: Text('连接状态',
+                  style: TextStyle(color: t.text, fontSize: 14)),
+              subtitle: Text(Realtime.i.status.value,
+                  style: TextStyle(
+                      color: live ? t.accent : t.text3, fontSize: 11.5)),
+              trailing: Icon(
+                  live ? Icons.bolt_rounded : Icons.cloud_off_rounded,
+                  size: 18,
+                  color: live ? t.accent : t.text3),
+              onTap: () {
+                if (_state.rtMode == 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('当前是「仅在打开时接收」，不需要保持长连接'),
+                      behavior: SnackBarBehavior.floating));
+                  return;
+                }
+                Realtime.i.stop();
+                Realtime.i.start();
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('正在重连…'), behavior: SnackBarBehavior.floating));
+              },
+            ),
+          ),
+          if (mode > 0) ...[
+            Divider(color: t.divider, height: 1),
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+              title: Text('省电白名单（推荐打开）',
+                  style: TextStyle(color: t.text, fontSize: 14)),
+              subtitle: Text('允许 App 后台常驻，才不会被系统清理掉',
+                  style: TextStyle(color: t.text3, fontSize: 11.5)),
+              trailing: Icon(Icons.battery_saver_rounded,
+                  size: 18, color: t.accent),
+              onTap: () async {
+                final ok = await NativeKeepAlive.ignoringBatteryOptimizations();
+                if (!mounted) return;
+                if (ok) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('已经是白名单状态，无需再设置'),
+                      behavior: SnackBarBehavior.floating));
+                  return;
+                }
+                await NativeKeepAlive.openBatterySettings();
+              },
+            ),
+            Divider(color: t.divider, height: 1),
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+              title: Text('允许自启动（小米/华为/OPPO/vivo 需要）',
+                  style: TextStyle(color: t.text, fontSize: 14)),
+              subtitle: Text('各家系统位置不同，点进去找「自启动 / 后台运行」允许即可',
+                  style: TextStyle(color: t.text3, fontSize: 11.5)),
+              trailing: Icon(Icons.settings_applications_rounded,
+                  size: 18, color: t.text2),
+              onTap: () => NativeKeepAlive.openAutoStartSettings(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
 
   Widget _themeChip(
       GlassTokens t, String label, ThemeMode mode, IconData icon) {

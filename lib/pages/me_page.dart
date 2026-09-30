@@ -7,6 +7,12 @@ import '../core/store.dart';
 import '../core/update.dart';
 import '../widgets/common.dart';
 import '../widgets/glass.dart';
+import 'chat_list_page.dart';
+import 'edit_profile_page.dart';
+import 'friends_page.dart';
+import 'login_page.dart';
+import 'privacy_settings_page.dart';
+import 'user_profile_page.dart';
 import 'settings_page.dart';
 import 'web_page.dart';
 
@@ -271,36 +277,52 @@ class _MePageState extends State<MePage> with AutomaticKeepAliveClientMixin {
   }
 
   Widget _menu(GlassTokens t) {
+    final me = _state.me;
     final items = <({String label, String sub, IconData icon, VoidCallback onTap})>[
+      if (me?.loggedIn == true)
+        (
+          label: '我的主页',
+          sub: '别人眼里的你长什么样',
+          icon: Icons.badge_outlined,
+          onTap: () => _openNative(
+              UserProfilePage(username: me!.username ?? '')),
+        ),
+      if (me?.loggedIn == true)
+        (
+          label: '编辑资料',
+          sub: '头像 · 背景 · 签名 · 标签',
+          icon: Icons.edit_rounded,
+          onTap: () => _openNative(const EditProfilePage()),
+        ),
       (
         label: '私信',
         sub: _state.unread.dm > 0 ? '${_state.unread.dm} 条未读' : '和站友聊天',
         icon: Icons.chat_bubble_rounded,
-        onTap: () => _openWeb('私信', '/dm'),
+        onTap: () => _openNative(const ChatListPage()),
       ),
       (
         label: '好友',
         sub: '好友申请 · 好友列表',
         icon: Icons.group_rounded,
-        onTap: () => _openWeb('好友', '/friends'),
+        onTap: () => _openNative(const FriendsPage()),
       ),
       (
         label: '会员与充值',
-        sub: '赞助支持服务器',
+        sub: '赞助支持服务器（下一版做成原生页）',
         icon: Icons.card_giftcard_rounded,
         onTap: () => _openWeb('会员与充值', '/pay'),
       ),
       (
         label: '活动与签到',
-        sub: '节日活动 · 每日签到',
+        sub: '节日活动 · 每日签到（下一版做成原生页）',
         icon: Icons.celebration_rounded,
         onTap: () => _openWeb('活动与签到', '/festival'),
       ),
       (
-        label: '全站设置（网页）',
-        sub: '隐私 · 通知 · 头像',
+        label: '隐私与设置',
+        sub: '谁能看我 · 谁能加我 · 谁能私信我',
         icon: Icons.tune_rounded,
-        onTap: () => _openWeb('设置', '/me'),
+        onTap: () => _openNative(const PrivacySettingsPage()),
       ),
     ];
     return GlassPanel(
@@ -474,7 +496,22 @@ class _MePageState extends State<MePage> with AutomaticKeepAliveClientMixin {
   }
 
   void _openLogin() {
-    GlassSheet.show<void>(context, child: const LoginSheet());
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => const LoginPage()))
+        .then((_) {
+      if (!mounted) return;
+      AppState.i.refreshBrandAndMe();
+      AppState.i.refreshUnread();
+    });
+  }
+
+  /// 打开原生页面（替代以前的跳网页）
+  void _openNative(Widget page) {
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => page))
+        .then((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   void _openWeb(String title, String path) {

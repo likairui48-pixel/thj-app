@@ -30,20 +30,28 @@ class ThjApp extends StatefulWidget {
   State<ThjApp> createState() => _ThjAppState();
 }
 
-class _ThjAppState extends State<ThjApp> {
+class _ThjAppState extends State<ThjApp> with WidgetsBindingObserver {
   final _state = AppState.i;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _state.addListener(_onChange);
     _boot();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _state.removeListener(_onChange);
     super.dispose();
+  }
+
+  /// 前后台切换：后台时才能弹系统通知，也决定要不要保活
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState s) {
+    _state.setForeground(s == AppLifecycleState.resumed);
   }
 
   void _onChange() {
@@ -61,6 +69,7 @@ class _ThjAppState extends State<ThjApp> {
     return MaterialApp(
       title: AppMeta.appName,
       debugShowCheckedModeBanner: false,
+      navigatorKey: NavBus.i.navKey,
       theme: ThjTheme.light(),
       darkTheme: ThjTheme.dark(),
       themeMode: _state.themeMode,

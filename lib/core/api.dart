@@ -262,6 +262,15 @@ class Api {
     return _decode(res);
   }
 
+  Future<Map<String, dynamic>> delete(String path) async {
+    final res = await _send((b) {
+      final uri = _uri(path);
+      final real = uri.replace(host: Uri.parse(b).host, port: Uri.parse(b).port, scheme: Uri.parse(b).scheme);
+      return http.delete(real, headers: _headers());
+    });
+    return _decode(res);
+  }
+
   // ---------------- 业务封装 ----------------
 
   Future<Map<String, dynamic>> status({bool showFakes = false}) =>
@@ -322,6 +331,140 @@ class Api {
       // 站点即使失败也允许本地登出
     }
     await clearSession();
+  }
+
+  Future<void> changePassword(String oldPassword, String newPassword) =>
+      post('/api/auth/password',
+          {'oldPassword': oldPassword, 'newPassword': newPassword});
+
+  // ---------------- 私信 ----------------
+
+  Future<Map<String, dynamic>> dmConversations() =>
+      get('/api/dm/conversations');
+
+  Future<Map<String, dynamic>> dmHistory(int userId,
+          {int? before, int limit = 50}) =>
+      get('/api/dm/$userId', {
+        if (before != null && before > 0) 'before': before,
+        'limit': limit,
+      });
+
+  Future<Map<String, dynamic>> dmSend(int userId,
+          {String text = '', String? image}) =>
+      post('/api/dm/$userId', {
+        if (text.isNotEmpty) 'text': text,
+        if (image != null && image.isNotEmpty) 'image': image,
+      });
+
+  Future<Map<String, dynamic>> dmMeta(int userId) =>
+      get('/api/dm/$userId/meta');
+
+  Future<Map<String, dynamic>> dmPin(int userId, {bool? value}) =>
+      post('/api/dm/$userId/pin', value == null ? {} : {'value': value});
+
+  Future<Map<String, dynamic>> dmMute(int userId, {bool? value}) =>
+      post('/api/dm/$userId/mute', value == null ? {} : {'value': value});
+
+  Future<Map<String, dynamic>> dmRevoke(int userId, int messageId) =>
+      post('/api/dm/$userId/revoke', {'messageId': messageId});
+
+  Future<void> dmRead(int userId) => post('/api/dm/$userId/read');
+
+  Future<void> dmDelete(int userId) =>
+      delete('/api/dm/$userId');
+
+  // ---------------- 好友 ----------------
+
+  Future<Map<String, dynamic>> friends() => get('/api/friends');
+
+  Future<Map<String, dynamic>> friendRequest(int userId) =>
+      post('/api/friends/request', {'userId': userId});
+
+  Future<Map<String, dynamic>> friendAccept(int userId) =>
+      post('/api/friends/accept', {'userId': userId});
+
+  Future<Map<String, dynamic>> friendReject(int userId) =>
+      post('/api/friends/reject', {'userId': userId});
+
+  Future<Map<String, dynamic>> friendBlock(int userId) =>
+      post('/api/friends/block', {'userId': userId});
+
+  Future<Map<String, dynamic>> friendUnblock(int userId) =>
+      post('/api/friends/unblock', {'userId': userId});
+
+  Future<void> friendDelete(int userId) => delete('/api/friends/$userId');
+
+  Future<Map<String, dynamic>> friendMeta(int userId,
+          {String? remark, String? group}) =>
+      post('/api/friends/$userId/meta', {
+        if (remark != null) 'remark': remark,
+        if (group != null) 'group': group,
+      });
+
+  Future<Map<String, dynamic>> userSearch(String q) =>
+      get('/api/users/search', {'q': q});
+
+  // ---------------- 个人主页 ----------------
+
+  Future<Map<String, dynamic>> profile(String username) =>
+      get('/api/profile/${Uri.encodeComponent(username)}');
+
+  Future<Map<String, dynamic>> space(String username) =>
+      get('/api/space/${Uri.encodeComponent(username)}');
+
+  Future<Map<String, dynamic>> saveProfile(
+          {String? bio, String? bg, List<String>? tags}) =>
+      post('/api/profile', {
+        if (bio != null) 'bio': bio,
+        if (bg != null) 'bg': bg,
+        if (tags != null) 'tags': tags,
+      });
+
+  Future<Map<String, dynamic>> uploadImage(String dataUrl,
+          {String kind = 'photo'}) =>
+      post('/api/upload/image', {'data': dataUrl, 'kind': kind});
+
+  Future<Map<String, dynamic>> setAvatar(String dataUrl) =>
+      post('/api/me/avatar', {'data': dataUrl});
+
+  Future<void> deleteAvatar() => delete('/api/me/avatar');
+
+  Future<Map<String, dynamic>> setProfileBg(String dataUrl) =>
+      post('/api/me/bg', {'data': dataUrl});
+
+  Future<void> deleteProfileBg() => delete('/api/me/bg');
+
+  Future<Map<String, dynamic>> privacy() => get('/api/settings/privacy');
+
+  Future<Map<String, dynamic>> setPrivacy(Map<String, dynamic> patch) =>
+      post('/api/settings/privacy', patch);
+
+  Future<Map<String, dynamic>> notifySettings() => get('/api/settings/notify');
+
+  Future<Map<String, dynamic>> setNotifySettings(Map<String, dynamic> patch) =>
+      post('/api/settings/notify', patch);
+
+  // ---------------- 榜单 ----------------
+
+  Future<Map<String, dynamic>> leaderboard(String by) =>
+      get('/api/leaderboard', {'by': by});
+
+  Future<Map<String, dynamic>> rankDetail(String name) =>
+      get('/api/rank/${Uri.encodeComponent(name)}');
+
+  Future<Map<String, dynamic>> bindStatus() => get('/api/bind/status');
+
+  Future<Map<String, dynamic>> bindStart() => post('/api/bind/start');
+
+  Future<Map<String, dynamic>> bindVerify(String code) =>
+      post('/api/bind/verify', {'code': code});
+
+  /// 相对路径 → 绝对地址（头像/图片都是 /static/... 形式）
+  String abs(String pathOrUrl) {
+    final s = pathOrUrl.trim();
+    if (s.isEmpty) return s;
+    if (s.startsWith('http://') || s.startsWith('https://')) return s;
+    return '$_base${s.startsWith('/') ? '' : '/'}$s';
   }
 
   /// 名片图 / 头像图（直接给 Image.network 用的 URL）
@@ -592,11 +735,20 @@ class UnreadInfo {
 class MeInfo {
   MeInfo({
     required this.loggedIn,
+    this.id = 0,
     this.username,
     this.role = 'member',
     this.isAdmin = false,
+    this.isStaff = false,
     this.mcName,
     this.avatar,
+    this.profileBg,
+    this.bio,
+    this.tags = const <String>[],
+    this.balance = 0,
+    this.membership,
+    this.qq,
+    this.bound = false,
     this.createdAt,
     this.serverName = '同禾境',
     this.notice = '',
@@ -606,11 +758,20 @@ class MeInfo {
   });
 
   final bool loggedIn;
+  final int id;
   final String? username;
   final String role;
   final bool isAdmin;
+  final bool isStaff;
   final String? mcName;
   final String? avatar;
+  final String? profileBg;
+  final String? bio;
+  final List<String> tags;
+  final int balance;
+  final Membership? membership;
+  final String? qq;
+  final bool bound;
   final int? createdAt;
   final String serverName;
   final String notice;
@@ -618,15 +779,53 @@ class MeInfo {
   final String siteUrl;
   final String serverAddress;
 
+  String? get avatarUrl {
+    final a = avatar;
+    if (a == null || a.isEmpty) return null;
+    return Api.i.abs(a);
+  }
+
+  String? get bgUrl {
+    final a = profileBg;
+    if (a == null || a.isEmpty) return null;
+    return Api.i.abs(a);
+  }
+
+  /// 给 UserLite 用（自己）
+  UserLite get asUser => UserLite(
+        id: id,
+        username: username ?? '',
+        role: role,
+        isAdmin: isAdmin,
+        mcName: mcName,
+        avatar: avatar,
+        bio: bio,
+        tags: tags,
+        membership: membership,
+        createdAt: createdAt,
+      );
+
   static MeInfo fromJson(Map<String, dynamic> j) {
     final u = j['user'] is Map ? asMap(j['user']) : <String, dynamic>{};
+    final m = u['membership'];
     return MeInfo(
       loggedIn: u.isNotEmpty,
+      id: asInt(u['id']),
       username: asStrOrNull(u['username']),
       role: asStr(u['role'], 'member'),
       isAdmin: asBool(u['isAdmin'] ?? u['is_admin']),
+      isStaff: asBool(u['isStaff']),
       mcName: asStrOrNull(u['mcName']),
       avatar: asStrOrNull(u['avatar']),
+      profileBg: asStrOrNull(u['profileBg']),
+      bio: asStrOrNull(u['bio']),
+      tags: (u['tags'] is List)
+          ? (u['tags'] as List).map((e) => e.toString()).toList()
+          : const <String>[],
+      balance: asInt(u['balance']),
+      membership: (m is Map) ? Membership.fromJson(asMap(m)) : null,
+      qq: asStrOrNull(u['qq']),
+      bound: u['binding'] != null,
       createdAt: u['createdAt'] == null ? null : asInt(u['createdAt']),
       serverName: asStr(j['serverName'], '同禾境'),
       notice: asStr(j['notice']),
@@ -634,5 +833,409 @@ class MeInfo {
       siteUrl: asStr(j['siteUrl']),
       serverAddress: asStr(j['server_address']),
     );
+  }
+}
+
+// ============================================================
+//  社交模型（v1.1：私信 / 好友 / 主页 / 榜单）
+//  一切字段容错，缺字段不崩（站点随时可能加字段）
+// ============================================================
+
+/// 站内用户（私信、好友、搜索结果、帖子作者都用它）
+class UserLite {
+  UserLite({
+    required this.id,
+    required this.username,
+    this.role = 'user',
+    this.isAdmin = false,
+    this.mcName,
+    this.avatar,
+    this.bio,
+    this.tags = const <String>[],
+    this.membership,
+    this.online = false,
+    this.remark,
+    this.group,
+    this.createdAt,
+  });
+
+  final int id;
+  final String username;
+  final String role;
+  final bool isAdmin;
+  final String? mcName;
+  final String? avatar;
+  final String? bio;
+  final List<String> tags;
+  final Membership? membership;
+  final bool online;
+
+  /// 好友备注 / 分组（只有 /api/friends 会给）
+  final String? remark;
+  final String? group;
+  final int? createdAt;
+
+  bool get isStaff => isAdmin || role == 'mod' || role == 'owner';
+
+  /// 显示名：有备注用备注
+  String get display => (remark != null && remark!.isNotEmpty) ? remark! : username;
+
+  /// 头像图 URL（服务端给的是 /api/avatar/<name> 或上传后的 /static/...）
+  String? get avatarUrl {
+    final a = avatar;
+    if (a == null || a.isEmpty) return null;
+    return Api.i.abs(a);
+  }
+
+  static UserLite fromJson(Map<String, dynamic> j) {
+    final m = j['membership'];
+    return UserLite(
+      id: asInt(j['id']),
+      username: asStr(j['username'], '未知'),
+      role: asStr(j['role'], 'user'),
+      isAdmin: asBool(j['isAdmin'] ?? j['is_admin']),
+      mcName: asStrOrNull(j['mcName'] ?? j['mc_name']),
+      avatar: asStrOrNull(j['avatar']),
+      bio: asStrOrNull(j['bio']),
+      tags: (j['tags'] is List)
+          ? (j['tags'] as List).map((e) => e.toString()).toList()
+          : const <String>[],
+      membership: (m is Map) ? Membership.fromJson(asMap(m)) : null,
+      online: asBool(j['online']),
+      remark: asStrOrNull(j['remark']),
+      group: asStrOrNull(j['group'] ?? j['grp']),
+      createdAt: j['createdAt'] == null ? null : asInt(j['createdAt']),
+    );
+  }
+}
+
+class Membership {
+  Membership({required this.label, this.color, this.until, this.badge});
+  final String label;
+  final int color;
+  final int? until;
+  final String? badge;
+
+  bool get active => until == null || until! > DateTime.now().millisecondsSinceEpoch;
+
+  static Membership fromJson(Map<String, dynamic> j) => Membership(
+        label: asStr(j['label'], '会员'),
+        color: _hex(asStrOrNull(j['color'])),
+        until: j['until'] == null ? null : asInt(j['until']),
+        badge: asStrOrNull(j['badge']),
+      );
+
+  static int _hex(String? s) {
+    if (s == null) return 0xFF2E9E63;
+    var h = s.replaceFirst('#', '');
+    if (h.length == 6) h = 'FF$h';
+    return int.tryParse(h, radix: 16) ?? 0xFF2E9E63;
+  }
+}
+
+/// 一条私信
+class DmMessage {
+  DmMessage({
+    required this.id,
+    required this.ts,
+    required this.from,
+    required this.body,
+    required this.mine,
+    this.revoked = false,
+    this.kind = 'text',
+    this.image,
+    this.read = false,
+    this.pending = false,
+    this.failed = false,
+  });
+
+  final int id;
+  final int ts;
+  final int from;
+  final String body;
+  final bool mine;
+  final bool revoked;
+  final String kind; // text | image
+  final String? image;
+  bool read;
+
+  /// 本地乐观插入（还没拿到服务端 id）
+  bool pending;
+  bool failed;
+
+  bool get isImage => kind == 'image' && image != null && !revoked;
+
+  String? get imageUrl => image == null ? null : Api.i.abs(image!);
+
+  static DmMessage fromJson(Map<String, dynamic> j) => DmMessage(
+        id: asInt(j['id']),
+        ts: asInt(j['ts']),
+        from: asInt(j['from']),
+        body: asStr(j['body']),
+        mine: asBool(j['mine']),
+        revoked: asBool(j['revoked']),
+        kind: asStr(j['kind'], 'text'),
+        image: asStrOrNull(j['image']),
+        read: asBool(j['read']),
+      );
+}
+
+class DmConv {
+  DmConv({
+    required this.peer,
+    required this.unread,
+    this.online = false,
+    this.lastBody,
+    this.lastTs = 0,
+    this.lastMine = false,
+    this.lastKind = 'text',
+    this.pinned = false,
+    this.muted = false,
+  });
+
+  final UserLite peer;
+  final int unread;
+  final bool online;
+  final String? lastBody;
+  final int lastTs;
+  final bool lastMine;
+  final String lastKind;
+  final bool pinned;
+  final bool muted;
+
+  static DmConv fromJson(Map<String, dynamic> j) {
+    final last = asMap(j['last']);
+    return DmConv(
+      peer: UserLite.fromJson(asMap(j['user'])),
+      unread: asInt(j['unread']),
+      online: asBool(j['online']),
+      lastBody: asStrOrNull(last['body']),
+      lastTs: asInt(last['ts']),
+      lastMine: asBool(last['mine']),
+      lastKind: asStr(last['kind'], 'text'),
+      pinned: asBool(j['pinned']),
+      muted: asBool(j['muted']),
+    );
+  }
+}
+
+class DmMeta {
+  DmMeta({this.pinned = false, this.muted = false, this.online = false, this.mcName});
+  final bool pinned;
+  final bool muted;
+  final bool online;
+  final String? mcName;
+
+  static DmMeta fromJson(Map<String, dynamic> j) {
+    final m = asMap(j['meta']);
+    return DmMeta(
+      pinned: asBool(m['pinned']),
+      muted: asBool(m['muted']),
+      online: asBool(j['online']),
+      mcName: asStrOrNull(j['mcName']),
+    );
+  }
+}
+
+class FriendsData {
+  FriendsData({
+    this.friends = const <UserLite>[],
+    this.incoming = const <UserLite>[],
+    this.outgoing = const <UserLite>[],
+    this.blocked = const <UserLite>[],
+  });
+
+  final List<UserLite> friends;
+  final List<UserLite> incoming;
+  final List<UserLite> outgoing;
+  final List<UserLite> blocked;
+
+  int get pendingCount => incoming.length;
+
+  static FriendsData fromJson(Map<String, dynamic> j) => FriendsData(
+        friends: asList(j['friends']).map(UserLite.fromJson).toList(),
+        incoming: asList(j['incoming']).map(UserLite.fromJson).toList(),
+        outgoing: asList(j['outgoing']).map(UserLite.fromJson).toList(),
+        blocked: asList(j['blocked']).map(UserLite.fromJson).toList(),
+      );
+}
+
+/// /api/profile/:username（看别人主页）
+class ProfileData {
+  ProfileData({
+    required this.user,
+    required this.bio,
+    required this.bg,
+    required this.tags,
+    this.isSelf = false,
+    this.relation = 'none',
+    this.hiddenStats = false,
+    this.hiddenOnline = false,
+    this.hiddenPosts = false,
+    this.hiddenCard = false,
+    this.friendCount = 0,
+    this.restricted = false,
+    this.reason,
+    this.canFriendRequest = false,
+    this.player,
+    this.memberships = const <String>[],
+  });
+
+  final UserLite user;
+  final String bio;
+  final String? bg;
+  final List<String> tags;
+  final bool isSelf;
+  final String relation; // none | pending | accepted | blocked
+  final bool hiddenStats;
+  final bool hiddenOnline;
+  final bool hiddenPosts;
+  final bool hiddenCard;
+  final int friendCount;
+  final bool restricted;
+  final String? reason;
+  final bool canFriendRequest;
+  final PlayerCard? player;
+  final List<String> memberships;
+
+  bool get isFriend => relation == 'accepted';
+  bool get hasPending => relation == 'pending';
+
+  static ProfileData fromJson(Map<String, dynamic> j) {
+    final p = asMap(j['profile']);
+    final h = asMap(j['hidden']);
+    return ProfileData(
+      user: UserLite.fromJson(asMap(j['user'])),
+      bio: asStr(p['bio']),
+      bg: asStrOrNull(p['bg']),
+      tags: (p['tags'] is List)
+          ? (p['tags'] as List).map((e) => e.toString()).toList()
+          : const <String>[],
+      isSelf: asBool(j['isSelf']),
+      relation: asStr(j['relation'], 'none'),
+      hiddenStats: asBool(h['stats']),
+      hiddenOnline: asBool(h['online']),
+      hiddenPosts: asBool(h['posts']),
+      hiddenCard: asBool(h['card']),
+      friendCount: asInt(j['friendCount']),
+      restricted: asBool(j['restricted']),
+      reason: asStrOrNull(j['reason']),
+      canFriendRequest: asBool(j['canFriendRequest']),
+      player: j['player'] == null ? null : PlayerCard.fromJson(<String, dynamic>{'player': j['player']}),
+      memberships: (j['memberships'] is List)
+          ? (j['memberships'] as List).map((e) => asStr(asMap(e)['label'], '会员')).toList()
+          : const <String>[],
+    );
+  }
+}
+
+/// /api/space/:username（个人空间聚合）
+class SpaceData {
+  SpaceData({
+    required this.username,
+    this.avatar,
+    this.bio = '',
+    this.bg,
+    this.views = 0,
+    this.followers = 0,
+    this.following = 0,
+    this.isFollowing = false,
+    this.isFriend = false,
+    this.guestbookCount = 0,
+    this.likesReceived = 0,
+    this.threads = const <Map<String, dynamic>>[],
+    this.mcName,
+    this.lastLogin,
+  });
+
+  final String username;
+  final String? avatar;
+  final String bio;
+  final String? bg;
+  final int views;
+  final int followers;
+  final int following;
+  final bool isFollowing;
+  final bool isFriend;
+  final int guestbookCount;
+  final int likesReceived;
+  final List<Map<String, dynamic>> threads;
+  final String? mcName;
+  final int? lastLogin;
+
+  static SpaceData fromJson(Map<String, dynamic> j) => SpaceData(
+        username: asStr(j['username']),
+        avatar: asStrOrNull(j['avatar']),
+        bio: asStr(j['bio']),
+        bg: asStrOrNull(j['bg']),
+        views: asInt(j['views']),
+        followers: asInt(j['followers']),
+        following: asInt(j['following']),
+        isFollowing: asBool(j['isFollowing']),
+        isFriend: asBool(j['isFriend']),
+        guestbookCount: asInt(j['guestbookCount']),
+        likesReceived: asInt(j['likesReceived']),
+        threads: asList(j['threads']),
+        mcName: asStrOrNull(j['mcName']),
+        lastLogin: j['lastLogin'] == null ? null : asInt(j['lastLogin']),
+      );
+}
+
+/// 时长榜 / 等级榜的一行
+class LeaderRow {
+  LeaderRow({
+    required this.rank,
+    required this.name,
+    this.level,
+    this.hours = 0,
+    this.webUser,
+    this.fake = false,
+    this.firstJoin,
+  });
+
+  final int rank;
+  final String name;
+  final int? level;
+  final double hours;
+  final String? webUser;
+  final bool fake;
+  final int? firstJoin;
+
+  static LeaderRow fromJson(Map<String, dynamic> j) => LeaderRow(
+        rank: asInt(j['rank']),
+        name: asStr(j['name'], '未知'),
+        level: j['level'] == null ? null : asInt(j['level']),
+        hours: asDouble(j['playtimeHours']),
+        webUser: asStrOrNull(j['webUser']),
+        fake: asBool(j['fake']),
+        firstJoin: j['firstJoin'] == null ? null : asInt(j['firstJoin']),
+      );
+}
+
+/// 隐私设置：服务端给了项目名与可选值，App 直接照着渲染（加项不用改 App）
+class PrivacyData {
+  PrivacyData({required this.privacy, required this.items});
+  final Map<String, String> privacy;
+
+  /// key → [标题, [可选值...]]
+  final Map<String, List<dynamic>> items;
+
+  static const Map<String, String> valueLabels = <String, String>{
+    'all': '所有人',
+    'friends': '仅好友',
+    'self': '仅自己',
+    'none': '不接受',
+  };
+
+  static PrivacyData fromJson(Map<String, dynamic> j) {
+    final p = <String, String>{};
+    asMap(j['privacy']).forEach((k, v) => p[k] = asStr(v, 'all'));
+    final items = <String, List<dynamic>>{};
+    asMap(j['items']).forEach((k, v) {
+      if (v is List && v.length >= 2) {
+        items[k] = <dynamic>[asStr(v[0]), v[1]];
+      }
+    });
+    return PrivacyData(privacy: p, items: items);
   }
 }
