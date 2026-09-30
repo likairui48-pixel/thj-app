@@ -7,7 +7,6 @@ import '../widgets/common.dart';
 import '../widgets/glass.dart';
 import 'chat_list_page.dart';
 import 'friends_page.dart';
-import 'web_page.dart';
 
 /// 消息中心：通知 / 私信 / 好友申请 三类未读 + 系统通知开关
 class MessagesPage extends StatefulWidget {
@@ -436,13 +435,6 @@ class _MessagesPageState extends State<MessagesPage>
         .then((_) => _load());
   }
 
-  void _openWeb(String title, String path) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => WebPage(title: title, path: path),
-      ),
-    );
-  }
 }
 
 /// 通知权限文案（避免在页面里直接依赖插件细节）

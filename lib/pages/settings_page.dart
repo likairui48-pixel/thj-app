@@ -10,7 +10,7 @@ import '../core/store.dart';
 import '../core/update.dart';
 import '../widgets/glass.dart';
 
-/// 设置：主题 / 通知 / 服务器地址 / 诊断 / 关于
+/// 设置：主题 / 通知 / 消息接收 / 服务器 / 诊断 / 关于
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
 
@@ -20,20 +20,17 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   final _state = AppState.i;
-  final _urlCtrl = TextEditingController();
   bool _busy = false;
 
   @override
   void initState() {
     super.initState();
     _state.addListener(_onChange);
-    _urlCtrl.text = Api.i.base;
   }
 
   @override
   void dispose() {
     _state.removeListener(_onChange);
-    _urlCtrl.dispose();
     super.dispose();
   }
 
@@ -167,79 +164,51 @@ class _SettingsPageState extends State<SettingsPage> {
                       ],
                     ),
                   ),
-                  _section(t, '服务器地址'),
+                  _section(t, '服务器'),
                   GlassPanel(
                     padding: const EdgeInsets.all(14),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          '当前：${Api.i.base}\n状态：${Api.i.online ? '连接正常' : '连不上，试试切换地址'}',
-                          style: TextStyle(
-                              color: Api.i.online ? t.text2 : GlassTokens.warn,
-                              fontSize: 12.5,
-                              height: 1.6),
-                        ),
-                        const SizedBox(height: 12),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: t.fill,
-                            borderRadius: BorderRadius.circular(R.tile),
-                            border: Border.all(color: t.stroke),
-                          ),
-                          child: TextField(
-                            controller: _urlCtrl,
-                            style: TextStyle(color: t.text, fontSize: 13.5),
-                            decoration: InputDecoration(
-                              hintText: 'https://你的域名',
-                              hintStyle:
-                                  TextStyle(color: t.text3, fontSize: 13),
-                              border: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 13),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
                         Row(
                           children: [
-                            Expanded(
-                              child: GlassButton(
-                                label: _busy ? '切换中…' : '应用地址',
-                                icon: Icons.check_rounded,
-                                loading: _busy,
-                                onTap: _busy ? null : _applyUrl,
-                              ),
+                            Icon(
+                              Api.i.online
+                                  ? Icons.cloud_done_rounded
+                                  : Icons.cloud_off_rounded,
+                              size: 18,
+                              color: Api.i.online
+                                  ? const Color(0xFF2E9E63)
+                                  : GlassTokens.warn,
                             ),
-                            const SizedBox(width: 10),
+                            const SizedBox(width: 8),
                             Expanded(
-                              child: GlassButton(
-                                label: '恢复默认',
-                                icon: Icons.restore_rounded,
-                                onTap: () async {
-                                  await Api.i.resetBase();
-                                  _urlCtrl.text = Api.i.base;
-                                  await _state.refreshStatus();
-                                  if (mounted) setState(() {});
-                                },
+                              child: Text(
+                                Api.i.online
+                                    ? '连接正常${Api.i.lastMs != null ? ' · ${Api.i.lastMs}ms' : ''}'
+                                    : '暂时连不上（App 会自动重试）',
+                                style: TextStyle(
+                                    color:
+                                        Api.i.online ? t.text : GlassTokens.warn,
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w600),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 10),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: Endpoints.defaults
-                              .map((u) => GlassChip(
-                                    label: u.replaceFirst('https://', ''),
-                                    active: Api.i.base == u,
-                                    onTap: () {
-                                      _urlCtrl.text = u;
-                                      _applyUrl();
-                                    },
-                                  ))
-                              .toList(),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${Api.i.base}\n'
+                          '地址已固化在 App 内，切网 / 弱网时自动重试，无需手动切换。',
+                          style: TextStyle(
+                              color: t.text3, fontSize: 12, height: 1.6),
+                        ),
+                        const SizedBox(height: 12),
+                        GlassButton(
+                          label: _busy ? '重连中…' : '重新连接',
+                          icon: Icons.refresh_rounded,
+                          loading: _busy,
+                          onTap: _busy ? null : _reconnect,
                         ),
                       ],
                     ),
@@ -468,17 +437,17 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Future<void> _applyUrl() async {
-    final url = _urlCtrl.text.trim();
-    if (url.isEmpty) return;
+  Future<void> _reconnect() async {
     setState(() => _busy = true);
-    await Api.i.setBase(url);
-    await _state.refreshStatus();
+    final ok = await Api.i.probe();
+    if (ok) await _state.refreshStatus();
     if (!mounted) return;
     setState(() => _busy = false);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(Api.i.online ? '地址已切换，连接正常' : '已保存，但当前连不上这个地址'),
+        content: Text(ok
+            ? '连接正常${Api.i.lastMs != null ? '（${Api.i.lastMs}ms）' : ''}'
+            : '还是连不上，App 会在后台继续自动重试'),
       ),
     );
   }

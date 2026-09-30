@@ -135,7 +135,9 @@ class AppState extends ChangeNotifier {
     final wasBackground = !foreground;
     foreground = v;
     if (v && wasBackground) {
-      // 回到前台：立即补一次未读（后台期间可能错过了推送）
+      // 回到前台：先静默探活（切了 WiFi/流量后旧连接可能已经半死），
+      // 再补一次未读、拉起重连 —— 用户不需要做任何操作。
+      if (!Api.i.online) Api.i.probe();
       refreshUnread(silent: true);
       if (rtMode > 0) Realtime.i.start();
     } else if (!v && rtMode == 0) {
@@ -393,6 +395,13 @@ class NavBus {
   void Function(String username)? openProfile;
   void Function(String path)? openWebPage;
 
+  /// 原生页入口（Shell 注入，store 不直接依赖页面文件，避免循环依赖）
+  void Function(int threadId)? openThread;
+  void Function(String board)? openBoard;
+  VoidCallback? openFestival;
+  VoidCallback? openPay;
+  VoidCallback? openBind;
+
   final _controller = StreamController<String>.broadcast();
   Stream<String> get stream => _controller.stream;
 
@@ -418,6 +427,55 @@ class NavBus {
         openProfile!(name);
         return;
       }
+    }
+    // 论坛帖子：/forum/thread/123（带 #p456 也认）
+    final th = RegExp(r'^/forum/thread/(\d+)').firstMatch(uri.path);
+    if (th != null) {
+      final id = int.tryParse(th.group(1)!);
+      if (id != null && openThread != null) {
+        openThread!(id);
+        return;
+      }
+    }
+    if (uri.path.startsWith('/forum')) {
+      final b = uri.queryParameters['board'];
+      if (b != null && b.isNotEmpty && openBoard != null) {
+        openBoard!(b);
+        return;
+      }
+      gotoTab('community');
+      return;
+    }
+    if (uri.path.startsWith('/festival')) {
+      if (openFestival != null) {
+        openFestival!();
+        return;
+      }
+    }
+    if (uri.path.startsWith('/pay') || uri.path.startsWith('/shop')) {
+      if (openPay != null) {
+        openPay!();
+        return;
+      }
+    }
+    if (uri.path.startsWith('/bind') ||
+        (uri.path == '/me' && uri.query.contains('bind'))) {
+      if (openBind != null) {
+        openBind!();
+        return;
+      }
+    }
+    if (uri.path.startsWith('/feed')) {
+      gotoTab('community');
+      return;
+    }
+    if (uri.path.startsWith('/rank') || uri.path.startsWith('/leaderboard')) {
+      gotoTab('rank');
+      return;
+    }
+    if (uri.path.startsWith('/me') || uri.path.startsWith('/profile')) {
+      gotoTab('me');
+      return;
     }
     openWebPage?.call(path);
   }

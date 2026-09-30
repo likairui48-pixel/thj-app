@@ -5,6 +5,9 @@ import '../core/api.dart';
 import '../core/store.dart';
 import '../widgets/common.dart';
 import '../widgets/glass.dart';
+import 'festival_page.dart';
+import 'friends_page.dart';
+import 'pay_page.dart';
 import 'player_page.dart';
 
 /// 首页：实时在线 / 服务器信息 / 在线玩家 / 快捷入口
@@ -305,25 +308,55 @@ class _HomePageState extends State<HomePage>
         icon: Icons.notifications_rounded,
         onTap: () => widget.onOpenTab?.call('messages'),
       ),
+      (
+        label: '活动签到',
+        icon: Icons.event_available_rounded,
+        onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const FestivalPage())),
+      ),
+      (
+        label: '会员充值',
+        icon: Icons.card_giftcard_rounded,
+        onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const PayPage())),
+      ),
+      (
+        label: '好友',
+        icon: Icons.people_alt_rounded,
+        onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const FriendsPage())),
+      ),
+      (
+        label: '搜索玩家',
+        icon: Icons.search_rounded,
+        onTap: _openSearch,
+      ),
     ];
-    return Row(
+    return Column(
       children: [
-        for (var i = 0; i < items.length; i++) ...[
-          if (i > 0) const SizedBox(width: 10),
-          Expanded(
-            child: GlassPanel(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              radius: R.tile,
-              onTap: items[i].onTap,
-              child: Column(
-                children: [
-                  Icon(items[i].icon, size: 21, color: t.text2),
-                  const SizedBox(height: 7),
-                  Text(items[i].label,
-                      style: TextStyle(color: t.text2, fontSize: 11.5)),
-                ],
-              ),
-            ),
+        for (var row = 0; row < 2; row++) ...[
+          if (row > 0) const SizedBox(height: 10),
+          Row(
+            children: [
+              for (var i = row * 4; i < row * 4 + 4; i++) ...[
+                if (i % 4 > 0) const SizedBox(width: 10),
+                Expanded(
+                  child: GlassPanel(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    radius: R.tile,
+                    onTap: items[i].onTap,
+                    child: Column(
+                      children: [
+                        Icon(items[i].icon, size: 21, color: t.text2),
+                        const SizedBox(height: 7),
+                        Text(items[i].label,
+                            style: TextStyle(color: t.text2, fontSize: 11.5)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
         ],
       ],

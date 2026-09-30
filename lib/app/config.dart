@@ -12,8 +12,8 @@ class AppMeta {
 
   static const String appName = '同禾境';
   static const String appNameEn = 'TongHeJing';
-  static const String version = '1.1.1';
-  static const int versionCode = 3;
+  static const String version = '1.2.0';
+  static const int versionCode = 4;
   static const String packageId = 'cn.mcfuns.thj';
   static const String qqGroupFallback = '1032612899';
 
@@ -21,14 +21,27 @@ class AppMeta {
   static String get versionLabel => '$version ($versionCode)';
 }
 
-/// 服务器地址候选（按顺序尝试，第一个成功即记住）
+/// 服务器地址
+///
+/// ★ 只走域名，不做「IP 直连」也不给用户选：
+///   IP 明文入口在多数运营商 / 校园网 / 公司网会被拦截或串到别的服务上，
+///   实测只有域名 (HTTPS + 证书) 稳定。地址写死 → 用户不用懂这些，也不会选错。
+///   网络抖动时的兜底不是「换地址」，而是**同一个域名静默重试**（见 [retryDelays]）。
 class Endpoints {
   Endpoints._();
 
-  static const List<String> defaults = <String>[
-    'https://thjmc.duckdns.org:8443', // 主：HTTPS（Cloudflare 隧道/正式域名就绪后替换这里）
-    'http://211.101.233.180:8080',    // 保底：明文入口（未备案时的直连通道）
-  ];
+  /// 唯一入口（域名）
+  static const String primary = 'https://thjmc.duckdns.org:8443';
+
+  /// 兼容旧字段：候选列表（保持 API 不变，方便以后加同域名备用入口）
+  static const List<String> defaults = <String>[primary];
+
+  /// 静默重试节奏（毫秒）：一次请求内先原地重试，间隔递增，全部失败才报错。
+  /// 典型场景：切基站 / 弱网一口气丢包，重试一次就过去了，用户无感。
+  static const List<int> retryDelays = <int>[0, 350, 900];
+
+  /// 健康检查（重试/重连前先探一下，探不通就不白等）
+  static const String healthPath = '/api/health';
 
   /// 更新清单接口（站点提供；未实现时 App 静默跳过，不会报错）
   static const String versionPath = '/api/app/version';

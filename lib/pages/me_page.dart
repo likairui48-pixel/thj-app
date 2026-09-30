@@ -8,9 +8,12 @@ import '../core/update.dart';
 import '../widgets/common.dart';
 import '../widgets/glass.dart';
 import 'chat_list_page.dart';
+import 'bind_page.dart';
 import 'edit_profile_page.dart';
+import 'festival_page.dart';
 import 'friends_page.dart';
 import 'login_page.dart';
+import 'pay_page.dart';
 import 'privacy_settings_page.dart';
 import 'user_profile_page.dart';
 import 'settings_page.dart';
@@ -178,8 +181,8 @@ class _MePageState extends State<MePage> with AutomaticKeepAliveClientMixin {
                   child: GlassButton(
                     label: '我的主页',
                     icon: Icons.person_rounded,
-                    onTap: () => _openWeb(
-                        '我的主页', '/u/${Uri.encodeComponent(me!.username!)}'),
+                    onTap: () => _openNative(
+                        UserProfilePage(username: me!.username!)),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -269,7 +272,7 @@ class _MePageState extends State<MePage> with AutomaticKeepAliveClientMixin {
                 GlassChip(
                   label: '去绑定',
                   icon: Icons.link_rounded,
-                  onTap: () => _openWeb('绑定游戏账号', '/me'),
+                  onTap: () => _openNative(const BindPage()),
                 ),
               ],
             ),
@@ -310,13 +313,13 @@ class _MePageState extends State<MePage> with AutomaticKeepAliveClientMixin {
         label: '会员与充值',
         sub: '赞助支持服务器（下一版做成原生页）',
         icon: Icons.card_giftcard_rounded,
-        onTap: () => _openWeb('会员与充值', '/pay'),
+        onTap: () => _openNative(const PayPage()),
       ),
       (
         label: '活动与签到',
         sub: '节日活动 · 每日签到（下一版做成原生页）',
         icon: Icons.celebration_rounded,
-        onTap: () => _openWeb('活动与签到', '/festival'),
+        onTap: () => _openNative(const FestivalPage()),
       ),
       (
         label: '隐私与设置',
@@ -512,12 +515,6 @@ class _MePageState extends State<MePage> with AutomaticKeepAliveClientMixin {
         .then((_) {
       if (mounted) setState(() {});
     });
-  }
-
-  void _openWeb(String title, String path) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => WebPage(title: title, path: path)),
-    );
   }
 
   void _snack(String msg) {

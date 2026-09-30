@@ -6,10 +6,15 @@ import '../app/config.dart';
 import '../core/store.dart';
 import '../widgets/glass.dart';
 import 'chat_page.dart';
+import 'bind_page.dart';
+import 'feed_page.dart';
+import 'festival_page.dart';
 import 'home_page.dart';
 import 'me_page.dart';
 import 'messages_page.dart';
+import 'pay_page.dart';
 import 'rank_page.dart';
+import 'thread_page.dart';
 import 'user_profile_page.dart';
 import 'web_page.dart';
 
@@ -37,6 +42,12 @@ class _ShellState extends State<Shell> {
     // 让「通知点击 / 消息里的链接」能从任何地方打开原生页面
     NavBus.i.openChat = (uid) => _push(ChatPage(userId: uid));
     NavBus.i.openProfile = (name) => _push(UserProfilePage(username: name));
+    NavBus.i.openThread = (id) => _push(ThreadPage(threadId: id));
+    NavBus.i.openBoard = (board) =>
+        _push(BoardPage(board: board, title: '版块'));
+    NavBus.i.openFestival = () => _push(const FestivalPage());
+    NavBus.i.openPay = () => _push(const PayPage());
+    NavBus.i.openBind = () => _push(const BindPage());
     NavBus.i.openWebPage =
         (path) => _push(WebPage(title: '同禾境', path: path));
   }
@@ -111,7 +122,7 @@ class _ShellState extends State<Shell> {
       case 'rank':
         return const RankPage();
       case 'community':
-        return const WebInline(title: '社区', path: '/feed');
+        return const FeedPage();
       case 'messages':
         return MessagesPage(onNeedLogin: () => _gotoId('me'));
       case 'me':

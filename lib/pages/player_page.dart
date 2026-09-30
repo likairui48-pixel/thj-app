@@ -4,7 +4,7 @@ import '../app/theme.dart';
 import '../core/api.dart';
 import '../widgets/common.dart';
 import '../widgets/glass.dart';
-import 'web_page.dart';
+import 'user_profile_page.dart';
 
 /// 玩家名片（核心屏）：数据总览 + 分数构成 + 网页详情入口
 class PlayerPage extends StatefulWidget {
@@ -294,11 +294,13 @@ class _PlayerPageState extends State<PlayerPage> {
         ),
       ],
       const SizedBox(height: 18),
-      GlassButton(
-        label: '查看完整主页',
-        icon: Icons.open_in_new_rounded,
-        onTap: () => _openWeb(c.name),
-      ),
+      if (c.webUser != null)
+        GlassButton(
+          label: '看 TA 的社区主页',
+          icon: Icons.person_rounded,
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => UserProfilePage(username: c.webUser!))),
+        ),
     ];
   }
 
@@ -342,12 +344,4 @@ class _PlayerPageState extends State<PlayerPage> {
     );
   }
 
-  Future<void> _openWeb(String name) async {
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => WebPage(
-        title: '$name 的主页',
-        path: '/p/${Uri.encodeComponent(name)}',
-      ),
-    ));
-  }
 }

@@ -81,10 +81,12 @@ class Api {
   static const String _kBase = 'thj_base_url';
 
   List<String> _candidates = List<String>.from(Endpoints.defaults);
-  String _base = Endpoints.defaults.first;
+  String _base = Endpoints.primary;
   String? _cookie;
   bool _loaded = false;
   bool online = true; // 上一次请求是否成功（用于离线提示）
+  int? lastMs; // 最近一次成功请求耗时（ms）
+  String? lastError; // 最近一次失败原因（设置页展示用）
 
   String get base => _base;
   String? get cookieRaw => _cookie;
@@ -94,28 +96,51 @@ class Api {
   Future<void> load() async {
     if (_loaded) return;
     final sp = await SharedPreferences.getInstance();
+    // 老版本可能存过「IP 直连」地址：统一清掉，避免继续用坏地址。
+    // 现在地址是写死的域名，用户不需要（也不允许）自己填。
     final saved = sp.getString(_kBase);
-    if (saved != null && saved.isNotEmpty) {
-      _base = saved;
-      _candidates = [saved, ...Endpoints.defaults.where((e) => e != saved)];
+    if (saved != null && saved.isNotEmpty && saved != Endpoints.primary) {
+      await sp.remove(_kBase);
     }
     _cookie = sp.getString(_kCookie);
     _loaded = true;
   }
 
+  /// 旧接口保留（仅域名合法时生效）；新界面不再暴露给用户。
   Future<void> setBase(String url) async {
     final clean = url.trim().replaceAll(RegExp(r'/+$'), '');
+    if (!clean.startsWith('https://')) return;
     _base = clean;
-    _candidates = [clean, ...Endpoints.defaults.where((e) => e != clean)];
+    _candidates = [clean];
     final sp = await SharedPreferences.getInstance();
     await sp.setString(_kBase, clean);
   }
 
   Future<void> resetBase() async {
-    _base = Endpoints.defaults.first;
+    _base = Endpoints.primary;
     _candidates = List<String>.from(Endpoints.defaults);
     final sp = await SharedPreferences.getInstance();
     await sp.remove(_kBase);
+  }
+
+  /// 轻量健康检查：用于「重新连接」和进入前台时探活
+  Future<bool> probe() async {
+    final sw = Stopwatch()..start();
+    try {
+      final res = await http
+          .get(Uri.parse('$_base${Endpoints.healthPath}'),
+              headers: _headers(json: false))
+          .timeout(const Duration(seconds: 6));
+      final good = res.statusCode == 200;
+      online = good;
+      lastMs = sw.elapsedMilliseconds;
+      if (good) lastError = null;
+      return good;
+    } catch (e) {
+      online = false;
+      lastError = e.toString();
+      return false;
+    }
   }
 
   Future<void> _saveCookie(String? raw) async {
@@ -176,24 +201,24 @@ class Api {
     return u.replace(queryParameters: {...u.queryParameters, ...q});
   }
 
-  /// 带故障转移的请求：主域名失败 → 保底 IP
+  /// 带「静默重试」的请求：
+  /// 弱网 / 切基站时先原地重试（间隔递增），全部失败才算真失败。
+  /// 地址固定为域名，不再做多地址瞎切 —— 认证 Cookie 也不会因为换地址丢会话。
   Future<http.Response> _send(
     Future<http.Response> Function(String base) run,
   ) async {
     await load();
     Object? last;
-    for (var i = 0; i < _candidates.length; i++) {
-      final b = _candidates[i];
+    final sw = Stopwatch()..start();
+    for (final delay in Endpoints.retryDelays) {
+      if (delay > 0) {
+        await Future<void>.delayed(Duration(milliseconds: delay));
+      }
       try {
-        final res = await run(b).timeout(RefreshPolicy.httpTimeout);
-        if (i > 0) {
-          // 切换成功后记住这个地址
-          _base = b;
-          _candidates = [b, ..._candidates.where((x) => x != b)];
-          final sp = await SharedPreferences.getInstance();
-          await sp.setString(_kBase, b);
-        }
+        final res = await run(_base).timeout(RefreshPolicy.httpTimeout);
         online = true;
+        lastError = null;
+        lastMs = sw.elapsedMilliseconds;
         _absorbCookies(res);
         return res;
       } on SocketException catch (e) {
@@ -207,8 +232,9 @@ class Api {
       }
     }
     online = false;
+    lastError = last?.toString();
     throw ApiError(
-      '连接不上服务器\n${last?.toString() ?? '网络不可用'}\n已尝试：${_candidates.join(' / ')}',
+      '连接不上服务器\n${last?.toString() ?? '网络不可用'}\n已重试 ${Endpoints.retryDelays.length} 次（$host）',
     );
   }
 
@@ -458,6 +484,129 @@ class Api {
 
   Future<Map<String, dynamic>> bindVerify(String code) =>
       post('/api/bind/verify', {'code': code});
+
+  Future<Map<String, dynamic>> unbind() => delete('/api/bind');
+
+  // ---------------- 社区 / 论坛 ----------------
+
+  Future<Map<String, dynamic>> feed({String scope = 'following', int limit = 20}) =>
+      get('/api/feed', {'scope': scope, 'limit': limit});
+
+  Future<Map<String, dynamic>> forumBoards() => get('/api/forum/boards');
+
+  Future<Map<String, dynamic>> forumThreads({
+    String? board,
+    int page = 1,
+    int size = 20,
+    String sort = 'new',
+  }) =>
+      get('/api/forum/threads', {
+        if (board != null && board.isNotEmpty) 'board': board,
+        'page': page,
+        'size': size,
+        'sort': sort,
+      });
+
+  Future<Map<String, dynamic>> forumThread(int id) => get('/api/forum/thread/$id');
+
+  Future<Map<String, dynamic>> forumNewThread({
+    required String board,
+    required String title,
+    required String body,
+    List<String>? images,
+  }) =>
+      post('/api/forum/threads', {
+        'board': board,
+        'title': title,
+        'body': body,
+        if (images != null && images.isNotEmpty) 'images': images,
+      });
+
+  Future<Map<String, dynamic>> forumReply(int id, String body,
+          {List<String>? images}) =>
+      post('/api/forum/thread/$id/reply', {
+        'body': body,
+        if (images != null && images.isNotEmpty) 'images': images,
+      });
+
+  Future<Map<String, dynamic>> forumLike(String kind, int id) =>
+      post('/api/forum/like', {'kind': kind, 'id': id});
+
+  Future<Map<String, dynamic>> forumEditThread(int id,
+          {String? title, String? body, List<String>? images}) =>
+      post('/api/forum/thread/$id/edit', {
+        if (title != null) 'title': title,
+        if (body != null) 'body': body,
+        if (images != null) 'images': images,
+      });
+
+  Future<Map<String, dynamic>> forumDeleteThread(int id) =>
+      delete('/api/forum/thread/$id');
+
+  Future<Map<String, dynamic>> forumEditPost(int id,
+          {String? body, List<String>? images}) =>
+      post('/api/forum/post/$id/edit', {
+        if (body != null) 'body': body,
+        if (images != null) 'images': images,
+      });
+
+  Future<Map<String, dynamic>> forumDeletePost(int id) =>
+      delete('/api/forum/post/$id');
+
+  Future<Map<String, dynamic>> collect(String kind, int id) =>
+      post('/api/collect/$kind/$id');
+
+  Future<Map<String, dynamic>> toggleFollow(String username, {bool? value}) =>
+      post('/api/follow/${Uri.encodeComponent(username)}',
+          value == null ? const <String, dynamic>{} : {'follow': value});
+
+  Future<Map<String, dynamic>> guestbook(String username, {int limit = 20}) =>
+      get('/api/guestbook/${Uri.encodeComponent(username)}', {'limit': limit});
+
+  Future<Map<String, dynamic>> postGuestbook(String username, String body) =>
+      post('/api/guestbook/${Uri.encodeComponent(username)}', {'body': body});
+
+  Future<Map<String, dynamic>> deleteGuestbook(int id) =>
+      delete('/api/guestbook/$id');
+
+  // ---------------- 活动 / 签到 ----------------
+
+  Future<Map<String, dynamic>> festival() => get('/api/festival');
+
+  Future<Map<String, dynamic>> festivalCheckin() => post('/api/festival/checkin');
+
+  Future<Map<String, dynamic>> festivalBoard() => get('/api/festival/board');
+
+  Future<Map<String, dynamic>> festivalTimeline() => get('/api/festival/timeline');
+
+  // ---------------- 商城 / 会员 / 充值 ----------------
+
+  Future<Map<String, dynamic>> shopConfig() => get('/api/shop/config');
+
+  Future<Map<String, dynamic>> shopProducts() => get('/api/shop/products');
+
+  Future<Map<String, dynamic>> shopOrder(Map<String, dynamic> body) =>
+      post('/api/shop/order', body);
+
+  Future<Map<String, dynamic>> shopOrders() => get('/api/shop/orders');
+
+  Future<Map<String, dynamic>> shopSubmit(int id, Map<String, dynamic> body) =>
+      post('/api/shop/order/$id/submit', body);
+
+  Future<Map<String, dynamic>> shopCloseOrder(int id) =>
+      post('/api/shop/order/$id/close');
+
+  Future<Map<String, dynamic>> shopRedeem(String code) =>
+      post('/api/shop/redeem', {'code': code});
+
+  Future<Map<String, dynamic>> membership() => get('/api/me/membership');
+
+  Future<Map<String, dynamic>> myPayments() => get('/api/me/payments');
+
+  Future<Map<String, dynamic>> payInfo() => get('/api/pay/info');
+
+  Future<Map<String, dynamic>> paySubmit(Map<String, dynamic> body) =>
+      post('/api/pay/submit', body);
 
   /// 相对路径 → 绝对地址（头像/图片都是 /static/... 形式）
   String abs(String pathOrUrl) {
