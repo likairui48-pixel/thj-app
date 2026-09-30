@@ -12,8 +12,8 @@ class AppMeta {
 
   static const String appName = '同禾境';
   static const String appNameEn = 'TongHeJing';
-  static const String version = '1.0.0';
-  static const int versionCode = 1;
+  static const String version = '1.1.1';
+  static const int versionCode = 3;
   static const String packageId = 'cn.mcfuns.thj';
   static const String qqGroupFallback = '1032612899';
 
