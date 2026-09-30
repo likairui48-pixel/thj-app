@@ -423,6 +423,12 @@ class _FriendsPageState extends State<FriendsPage>
       );
     }
     if (list.isEmpty) {
+      if (_err != null) {
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [ErrorPanel(message: _err!, onRetry: () => _load())],
+        );
+      }
       return ListView(
         padding: const EdgeInsets.all(16),
         children: [

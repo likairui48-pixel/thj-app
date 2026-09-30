@@ -910,7 +910,12 @@ class UserLite {
 }
 
 class Membership {
-  Membership({required this.label, this.color, this.until, this.badge});
+  Membership({
+    required this.label,
+    this.color = 0xFF2E9E63,
+    this.until,
+    this.badge,
+  });
   final String label;
   final int color;
   final int? until;
@@ -954,7 +959,7 @@ class DmMessage {
   final int from;
   final String body;
   final bool mine;
-  final bool revoked;
+  bool revoked;
   final String kind; // text | image
   final String? image;
   bool read;

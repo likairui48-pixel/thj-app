@@ -351,6 +351,14 @@ class _UserProfilePageState extends State<UserProfilePage> {
           ),
         if (p.hasPending)
           GlassChip(label: '好友申请已发出', icon: Icons.hourglass_top_rounded),
+        if (p.relation == 'blocked')
+          GlassButton(
+            label: '解除拉黑',
+            expand: false,
+            height: 38,
+            icon: Icons.lock_open_rounded,
+            onTap: _unblock,
+          ),
         if (p.user.mcName != null && !p.hiddenCard)
           GlassButton(
             label: '游戏名片',
