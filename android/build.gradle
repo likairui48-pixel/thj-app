@@ -1,8 +1,8 @@
 allprojects {
     repositories {
-        maven { url 'https://maven.aliyun.com/repository/google' }
-        maven { url 'https://maven.aliyun.com/repository/central' }
-        maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+        // Flutter 引擎产物：国内镜像优先，GitHub 上也能访问
+        maven { url 'https://storage.flutter-io.cn/download.flutter.io' }
+        maven { url 'https://storage.googleapis.com/download.flutter.io' }
         google()
         mavenCentral()
     }
