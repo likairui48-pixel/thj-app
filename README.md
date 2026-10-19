@@ -50,7 +50,6 @@
 - 订单：收款码、付款凭证、提交审核、卡密、物流、关闭
 - 兑换码
 - SMP：报名 / 退赛 / 位置公开 / 实时地图 / 击杀流水 / 名单 / 规则
-- 庄园杯：报名、地块、观赛模式、排行榜
 
 ### 我的
 - 资料编辑：头像、主页背景、签名、标签
@@ -62,7 +61,7 @@
 ### 平台能力
 - 深浅色 / 跟随系统
 - 离线缓存：首页、榜单、帖子
-- 深链：`/chat?u=1`、`/u/name`、`/p/name`、`/forum/thread/1`、`/festival`、`/smp`、`/manor`、`/report`
+- 深链：`/chat?u=1`、`/u/name`、`/p/name`、`/forum/thread/1`、`/festival`、`/smp`、`/report`
 - 后台长连接 + 静默前台服务（可选）
 - 远程配置：底部栏、功能开关、公告、最低版本
 - 在线更新：读 `/api/app/version`
@@ -157,7 +156,6 @@ App 启动后会读两个接口，**不需要发版就能改入口和公告**。
     "events": true,
     "shop": true,
     "smp": true,
-    "manor": true,
     "report": true,
     "guestbook": true,
     "search": true
@@ -180,7 +178,7 @@ App 启动后会读两个接口，**不需要发版就能改入口和公告**。
 
 ### 3. 活动通用化
 
-活动页只认 `/api/festival` 返回的 `event / timeline / checkin / products / manor`，
+活动页只认 `/api/festival` 返回的 `event / timeline / checkin / products`，
 不把“国庆”写死在 App 里。下一场活动只要后台换数据，App 直接复用。
 
 ---
@@ -214,7 +212,7 @@ lib/
     meta.dart           版本 / 地址 / 包名
     nav.dart            全局导航
     update_ui.dart      更新弹层
-  pages/                首页、社区、消息、排行、我的、活动、SMP、庄园杯…
+  pages/                首页、社区、消息、排行、我的、活动、SMP…
 android/                原生壳 / 前台服务 / 深链
 .github/workflows/      GitHub Actions 出包
 server/                 更新接口示例 JSON

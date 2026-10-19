@@ -6,7 +6,7 @@
     "url": "https://thjmc.duckdns.org:8443/static/app/thj-app-arm64.apk",
     "notes": [
       "新增举报中心",
-      "新增活动中心 / SMP / 庄园杯",
+      "新增活动中心 / SMP",
       "修复聊天断线与通知深链"
     ],
     "force": false,

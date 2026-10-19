@@ -86,7 +86,6 @@ class AppConfig {
     'events': true,
     'shop': true,
     'smp': true,
-    'manor': true,
     'report': true,
     'guestbook': true,
     'search': true,

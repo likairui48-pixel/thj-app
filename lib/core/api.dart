@@ -618,19 +618,6 @@ class Api {
   Future<Map<String, dynamic>> smpPos({required bool publicPos}) =>
       post('/api/smp/pos', {'publicPos': publicPos});
 
-  // ---------------- 庄园杯 ----------------
-
-  Future<Map<String, dynamic>> manorPublic() => get('/manor/api/public');
-
-  Future<Map<String, dynamic>> manorIdentity() => get('/api/manor/identity');
-
-  Future<Map<String, dynamic>> manorRegister(
-          {String qq = '', String motto = ''}) =>
-      post('/api/manor/register', {'qq': qq, 'motto': motto});
-
-  Future<Map<String, dynamic>> manorVisit(String mode) =>
-      post('/api/manor/visit', {'mode': mode});
-
   // ---------------- 举报 ----------------
 
   Future<Map<String, dynamic>> reportReasons() => get('/api/report/reasons');

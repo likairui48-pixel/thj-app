@@ -562,7 +562,6 @@ class _EventsPageState extends State<EventsPage> {
   Widget _timelineSection(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final items = asList(_fest['timeline']);
-    final manor = asMap(_fest['manor']);
     if (items.isEmpty) {
       return const EmptyView(
         text: '站长还没排日程',
@@ -577,9 +576,6 @@ class _EventsPageState extends State<EventsPage> {
           final status = asStr(it['status']);
           final live = status == 'live';
           final done = status == 'done';
-          final isBuild = asStr(it['type']) == 'build';
-          final showManor = asBool(manor['ok']) &&
-              (asBool(manor['entranceVisible']) || _state.isStaff);
           return Padding(
             padding: const EdgeInsets.only(bottom: 9),
             child: AppCard(
@@ -659,15 +655,6 @@ class _EventsPageState extends State<EventsPage> {
                             ),
                           ),
                         ],
-                        if (isBuild && showManor)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: OutlinedButton.icon(
-                              onPressed: () => Nav.to('/manor'),
-                              icon: const Icon(Icons.flag_rounded, size: 16),
-                              label: const Text('去报名'),
-                            ),
-                          ),
                       ],
                     ),
                   ),
@@ -1244,12 +1231,6 @@ class _EventsPageState extends State<EventsPage> {
             title: 'SMP 活动服',
             sub: '报名、规则、击杀流水、观战地图',
             onTap: () => Nav.to('/smp'),
-          ),
-          ActionTile(
-            icon: Icons.flag_rounded,
-            title: '庄园杯建筑大赛',
-            sub: '报名、地块、倒计时、排行榜',
-            onTap: () => Nav.to('/manor'),
           ),
           ActionTile(
             icon: Icons.workspace_premium_outlined,

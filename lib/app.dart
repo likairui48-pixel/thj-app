@@ -14,7 +14,6 @@ import 'pages/chat.dart';
 import 'pages/community.dart';
 import 'pages/events.dart';
 import 'pages/login.dart';
-import 'pages/manor.dart';
 import 'pages/membership.dart';
 import 'pages/player.dart';
 import 'pages/profile.dart';
@@ -164,10 +163,6 @@ class _ThjAppState extends State<ThjApp> with WidgetsBindingObserver {
     }
     if (p.startsWith('/smp')) {
       Nav.push(const SmpPage());
-      return;
-    }
-    if (p.startsWith('/manor')) {
-      Nav.push(const ManorPage());
       return;
     }
     if (p.startsWith('/report')) {
