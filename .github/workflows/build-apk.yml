@@ -62,6 +62,8 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
+          prerelease: ${{ contains(github.ref_name, '-next') }}
+          name: 同禾境全新版 ${{ github.ref_name }}
           files: |
             dist/thj-app-arm64.apk
             dist/thj-app-arm32.apk
