@@ -1,0 +1,30 @@
+{
+  "ok": true,
+  "tabs": [
+    { "id": "home", "label": "首页", "icon": "home", "enabled": true },
+    { "id": "community", "label": "社区", "icon": "community", "enabled": true },
+    { "id": "messages", "label": "消息", "icon": "message", "enabled": true, "badge": true },
+    { "id": "rank", "label": "排行", "icon": "rank", "enabled": true },
+    { "id": "me", "label": "我的", "icon": "person", "enabled": true }
+  ],
+  "features": {
+    "chat": true,
+    "community": true,
+    "rank": true,
+    "events": true,
+    "shop": true,
+    "smp": true,
+    "manor": true,
+    "report": true,
+    "guestbook": true,
+    "search": true
+  },
+  "announcement": {
+    "id": "2026-10-01-notice",
+    "title": "国庆活动开启",
+    "body": "签到、商城、SMP 已上线。",
+    "link": "/festival"
+  },
+  "minVersionCode": 1,
+  "forceUpdate": false
+}
