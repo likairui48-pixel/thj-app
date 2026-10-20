@@ -1,7 +1,7 @@
 name: thj_app
 description: "同禾境 · 服务器社区客户端（全新版）"
 publish_to: "none"
-version: 1.0.0+1
+version: 1.0.0+2
 
 environment:
   sdk: ">=3.4.0 <4.0.0"

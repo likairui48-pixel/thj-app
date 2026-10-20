@@ -5,7 +5,7 @@ class AppMeta {
   static const String appName = '同禾境';
   static const String appNameEn = 'TongHeJing';
   static const String version = '1.0.0';
-  static const int versionCode = 1;
+  static const int versionCode = 2;
 
   /// 站点唯一入口：只走域名，避免 IP 直连在部分网络下被拦截。
   static const String baseUrl = 'https://thjmc.duckdns.org:8443';
