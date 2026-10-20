@@ -1,4 +1,4 @@
-package cn.mcfuns.thj
+package cn.mcfuns.thj.next
 
 import android.app.Notification
 import android.app.NotificationChannel

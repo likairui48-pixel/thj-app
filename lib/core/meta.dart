@@ -10,7 +10,7 @@ class AppMeta {
   /// 站点唯一入口：只走域名，避免 IP 直连在部分网络下被拦截。
   static const String baseUrl = 'https://thjmc.duckdns.org:8443';
 
-  static const String packageId = 'cn.mcfuns.thj';
+  static const String packageId = 'cn.mcfuns.thj.next';
   static const String qqGroup = '1032612899';
   static const String siteUrl = 'https://thjmc.duckdns.org:8443';
 }

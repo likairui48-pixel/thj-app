@@ -1,4 +1,4 @@
-package cn.mcfuns.thj
+package cn.mcfuns.thj.next
 
 import android.content.Intent
 import android.net.Uri

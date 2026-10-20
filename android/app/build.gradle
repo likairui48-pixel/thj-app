@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "cn.mcfuns.thj"
+    namespace = "cn.mcfuns.thj.next"
     compileSdk = 35
     ndkVersion = flutter.ndkVersion
 
@@ -20,7 +20,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "cn.mcfuns.thj"
+        applicationId = "cn.mcfuns.thj.next"
         minSdk = 26
         targetSdk = 34
         versionCode = flutter.versionCode

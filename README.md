@@ -75,7 +75,7 @@
 | Flutter | 3.24.5 stable |
 | Dart | 3.5.x |
 | Android | minSdk 26 / targetSdk 34 / compileSdk 34 |
-| 包名 | `cn.mcfuns.thj` |
+| 包名 | `cn.mcfuns.thj.next` |
 | 网络 | `http` + 自写 Engine.IO v4 WebSocket |
 | 存储 | `shared_preferences`（会话 Cookie / 设置 / 缓存） |
 | 通知 | `flutter_local_notifications` + 原生前台服务 |
