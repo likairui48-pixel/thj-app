@@ -108,7 +108,7 @@ flutter build apk --release --split-per-abi
 
 当前 `release` 使用 debug 签名，方便直接安装测试。正式发版前请在
 `android/app/build.gradle` 里配置自己的 keystore，并妥善保管；签名变了以后
-旧版本无法覆盖安装，需要先卸载。
+新版使用独立包名 `cn.mcfuns.thj.next`，可以与旧版同时安装；正式发版前请配置自己的 keystore，签名变了以后同包名无法覆盖安装。
 
 ---
 
